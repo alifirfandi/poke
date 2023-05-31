@@ -1,0 +1,154 @@
+{
+	"info": {
+		"_postman_id": "a25e7bc7-6948-44c5-a49b-8e723dd7661d",
+		"name": "Poke-FIght Club",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "9911600"
+	},
+	"item": [
+		{
+			"name": "[OP] Get List Pokemon Copy",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{3000}}/pokemon?page=1",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"pokemon"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[OP] Get Detail Pokemon Copy",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{3000}}/pokemon/:name",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"pokemon",
+						":name"
+					],
+					"variable": [
+						{
+							"key": "name",
+							"value": "bulbasaur"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[ADM] Poke Fight Copy",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"pokemon\": [\"ditto\", \"ivysaur\", \"charizard\", \"bulbasaur\", \"snorlax\"]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{3000}}/fight",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"fight"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SA] Get Fight Histories Copy",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{3000}}/fight/history?start_date=2023-05-31&end_date=2023-05-31",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"fight",
+						"history"
+					],
+					"query": [
+						{
+							"key": "start_date",
+							"value": "2023-05-31"
+						},
+						{
+							"key": "end_date",
+							"value": "2023-05-31"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SA] Get Leaderboard Copy",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{3000}}/leaderboard",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"leaderboard"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SA] Cancel Pokemon Fight Copy",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"fight_history_id\": 1,\r\n    \"pokemon\": \"snorlax\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{3000}}/cancel",
+					"host": [
+						"{{3000}}"
+					],
+					"path": [
+						"cancel"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
