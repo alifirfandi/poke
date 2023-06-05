@@ -2,13 +2,16 @@ package controller
 
 import (
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"math"
 	"net/http"
 	"pokeapi/helper"
+	"pokeapi/middleware"
 	"pokeapi/model"
 	"pokeapi/service"
 	"strconv"
+	"time"
 )
 
 type PokeController struct {
@@ -22,15 +25,23 @@ func NewPokeController(pokeService *service.PokeService) PokeController {
 }
 
 func (c PokeController) Route(app fiber.Router) {
-	app.Get("/pokemon", c.GetAll)
-	app.Get("/pokemon/:name", c.GetOne)
-	app.Post("/fight", c.Fight)
-	app.Get("/fight/history", c.GetHistories)
-	app.Put("/cancel", c.CancelPokemon)
-	app.Get("/leaderboard", c.Leaderboard)
+	app.Post("/login", c.Login)
+	app.Get("/pokemon", middleware.AuthMiddleware, c.GetAll)
+	app.Get("/pokemon/:name", middleware.AuthMiddleware, c.GetOne)
+	app.Post("/fight", middleware.AuthMiddleware, c.Fight)
+	app.Get("/fight/history", middleware.AuthMiddleware, c.GetHistories)
+	app.Put("/cancel", middleware.AuthMiddleware, c.CancelPokemon)
+	app.Get("/leaderboard", middleware.AuthMiddleware, c.Leaderboard)
 }
 
 func (c PokeController) GetAll(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "operational" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	page := ctx.Query("page")
 	pageInt, err := strconv.Atoi(page)
 	if err != nil || pageInt < 1 {
@@ -48,11 +59,18 @@ func (c PokeController) GetAll(ctx *fiber.Ctx) error {
 }
 
 func (c PokeController) GetOne(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "operational" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	name := ctx.Params("name")
 	pokeData, err := c.PokeService.GetPokemonData(name)
 	if err != nil {
 		return ctx.Status(404).JSON(model.Response{
-			Error: "Data Pokemon Tidak Ditemukan",
+			Error: "Data Not Found",
 		})
 	}
 
@@ -62,6 +80,13 @@ func (c PokeController) GetOne(ctx *fiber.Ctx) error {
 }
 
 func (c PokeController) Fight(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "admin" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	var reqBody model.PokemonCreateReqBody
 	if err := ctx.BodyParser(&reqBody); err != nil {
 		return ctx.Status(400).JSON(model.Response{
@@ -88,6 +113,13 @@ func (c PokeController) Fight(ctx *fiber.Ctx) error {
 }
 
 func (c PokeController) GetHistories(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "superadmin" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	var req model.PokemonReqQuery
 	if ctx.Query("start_date") != "" && ctx.Query("end_date") != "" {
 		req = model.PokemonReqQuery{
@@ -109,6 +141,13 @@ func (c PokeController) GetHistories(ctx *fiber.Ctx) error {
 }
 
 func (c PokeController) Leaderboard(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "superadmin" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	leaderboardData, err := c.PokeService.GetLeaderboard()
 	if err != nil {
 		return ctx.Status(500).JSON(model.Response{
@@ -122,6 +161,13 @@ func (c PokeController) Leaderboard(ctx *fiber.Ctx) error {
 }
 
 func (c PokeController) CancelPokemon(ctx *fiber.Ctx) error {
+	role := ctx.Locals("role")
+	if role != "superadmin" {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "Forbidden",
+		})
+	}
+
 	var reqBody model.PokemonCancelReqBody
 	if err := ctx.BodyParser(&reqBody); err != nil {
 		return ctx.Status(400).JSON(model.Response{
@@ -138,5 +184,35 @@ func (c PokeController) CancelPokemon(ctx *fiber.Ctx) error {
 
 	return ctx.Status(http.StatusOK).JSON(model.Response{
 		Data: pokeData,
+	})
+}
+
+func (c PokeController) Login(ctx *fiber.Ctx) error {
+	user := new(model.User)
+	if err := ctx.BodyParser(user); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid request body",
+		})
+	}
+
+	if user.Role != "operational" && user.Role != "admin" && user.Role != "superadmin" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "Invalid credentials",
+		})
+	}
+
+	token := jwt.New(jwt.SigningMethodHS256)
+
+	claims := token.Claims.(jwt.MapClaims)
+	claims["role"] = user.Role
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+
+	tokenString, err := token.SignedString([]byte("secret-key"))
+	if err != nil {
+		return ctx.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return ctx.JSON(fiber.Map{
+		"token": tokenString,
 	})
 }

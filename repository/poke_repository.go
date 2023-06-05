@@ -6,25 +6,32 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"net/http"
+	"pokeapi/config"
 	"pokeapi/entity"
 	"pokeapi/model"
 	"time"
 )
 
-type PokeRepository struct {
-	DB *gorm.DB
+type HTTPClient interface {
+	Get(url string) (*http.Response, error)
 }
 
-func NewPokeRepository(mysql *gorm.DB) PokeRepository {
+type PokeRepository struct {
+	DB         *gorm.DB
+	HTTPClient HTTPClient
+}
+
+func NewPokeRepository(mysql *gorm.DB, httpClient HTTPClient) PokeRepository {
 	return PokeRepository{
-		DB: mysql,
+		DB:         mysql,
+		HTTPClient: httpClient,
 	}
 }
 
 func (r PokeRepository) GetAllPokemon(offset int) (model.PokeDataSourceRes, error) {
 	url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon?limit=10&offset=%d", offset)
 
-	response, err := http.Get(url)
+	response, err := r.HTTPClient.Get(url)
 	if err != nil {
 		return model.PokeDataSourceRes{}, err
 	}
@@ -42,7 +49,7 @@ func (r PokeRepository) GetAllPokemon(offset int) (model.PokeDataSourceRes, erro
 func (r PokeRepository) GetOnePokemon(name string) (model.PokeDetailDataSourceRes, error) {
 	url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
 
-	response, err := http.Get(url)
+	response, err := r.HTTPClient.Get(url)
 	if err != nil {
 		return model.PokeDetailDataSourceRes{}, err
 	}
@@ -101,12 +108,22 @@ func (r PokeRepository) GetFightHistory(req model.PokemonReqQuery) ([]entity.Fig
 }
 
 func (r PokeRepository) GetSumScore() ([]model.Leaderboard, error) {
+	getData, _ := config.GetData("leaderboard")
+	if getData != "" {
+		var pokemonArray []model.Leaderboard
+		_ = json.Unmarshal([]byte(getData), &pokemonArray)
+		return pokemonArray, nil
+	}
+
 	var leaderboard []model.Leaderboard
 	_ = r.DB.Table("fight_history_details").
 		Select("pokemon, SUM(score) as total_score").
 		Group("pokemon").
 		Order("total_score DESC").
 		Scan(&leaderboard)
+
+	setData, _ := json.Marshal(leaderboard)
+	_ = config.SetData("leaderboard", string(setData))
 
 	return leaderboard, nil
 }
